@@ -1,0 +1,39 @@
+﻿# Visual Studio
+.vs/
+*.user
+*.VC.db
+*.opendb
+ipch/
+
+# Build outputs
+x64/
+x86/
+Debug/
+Release/
+bin/
+obj/
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.exe
+*.lib
+*.exp
+
+# Logs/results (generated)
+bd.result*
+metrics*.csv
+*.log
+
+# Generated debug images
+follow.jpg
+impact.jpg
+vote.jpg
+personROI.jpg
+ballYolo.jpg
+back.jpg
+
+# Optional local binaries (prefer not to commit)
+opencv_ffmpeg340_64.dll
+opencv_world340.dll
+opencv_world340d.dll
