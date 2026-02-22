@@ -2,6 +2,8 @@
 
 Visual Studio C++ project for golf-ball related image/video processing.
 
+![Project Abstract](assets/GAbstract2.png)
+
 ## Repository Structure (recommended)
 
 - Source/project files to keep:
