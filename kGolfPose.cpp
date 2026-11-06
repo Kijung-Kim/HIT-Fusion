@@ -1,4 +1,7 @@
 #include "kGolfPose.h"
+#include "paper_rules.h"
+#include <limits>
+#include <cmath>
 
 
 
@@ -94,29 +97,15 @@ kGolfPose::kGolfPose(string cfg, string weight)
 
 void kGolfPose::initResult()
 {
-	for (std::size_t i = 0; i < m_result_Max; ++i)
-	{
-		m_results[i].curBlueImg = Mat(1080, 1920, CV_8UC1, Scalar(0));
-		m_results[i].curRedImg = Mat(1080, 1920, CV_8UC1, Scalar(0));
-		m_results[i].curImg = Mat(1080, 1920, CV_8UC3, Scalar(0));
-		m_results[i].idx = m_result_Max;
-		m_results[i].flowEnergySum = -1;
-		m_results[i].localImpactBGSCount = 0;
-		for (size_t j = 0; j < candidatesBall_Num_Max; j++)
-		{
-			m_results[i].ballCandidates[j].x = -1;
-			m_results[i].ballCandidates[j].y = -1;
-			m_results[i].ballCandidates[j].size = -1;
-			m_results[i].ballCandidates[j].idx = -1;
-		}
-		m_results[i].ballCandidatesNum = 0;
-	}
-	m_resultsNum = 0;  //
-	m_ballPosition.x = -1;
-	m_ballPosition.y = -1;
-
-	m_finalBallROI.x = -1;
-	m_finalBallROI.y = -1;
+    for (int i=0; i<m_result_Max; ++i) {
+        m_results[i] = analysisFactor{};
+        m_results[i].idx=i;
+        m_results[i].localImpactBGSCount=-1;
+        m_results[i].flowEnergySum=-1;
+        m_results[i].ckSkipEndPoint=true;
+    }
+    m_resultsNum=0; m_ballPosition=Point(-1,-1);
+    m_finalBallROI=Rect(); m_impactIdx=-1; m_impactIdxNew=-1;
 }
 
 kGolfPose::~kGolfPose()
@@ -160,7 +149,8 @@ void kGolfPose::detectedPerson(Mat inputImg, float threshold, Rect& outRec, Poin
 	int inpWidth = 416;        // Width of network's input image
 	int inpHeight = 416;
 	//outRec = Rect(Point(0, 0), Point(0, 0));   //max
-	outRec = Rect(Point(0, 0), Point(99990, 99990));    //min
+	outRec = Rect();
+    vector<Rect> people;    //min
 	personCenter = Point(0, 0);
 
 	for (int i = 0; i < detectionMat.rows; i++)
@@ -190,7 +180,7 @@ void kGolfPose::detectedPerson(Mat inputImg, float threshold, Rect& outRec, Poin
 			cvWaitKey(1);
 			
 		}*/
-		
+
 		if ((objectClass == 0) && (confidence > confidenceThreshold))
 		{
 			//std::cout << "detectionMat = " << objectClass << "confedence = " << confidence << endl;
@@ -211,7 +201,8 @@ void kGolfPose::detectedPerson(Mat inputImg, float threshold, Rect& outRec, Poin
 				personCenter.x = outRec.x + (outRec.width*0.5);
 				personCenter.y = outRec.y + (outRec.height*0.5);
 			}*/
-			if (outRecTemp.height < outRec.height)  // 작은것을 선택(카메라에서 먼 사람을 선택)
+			people.push_back(outRecTemp);
+            if (outRec.empty() || outRecTemp.height < outRec.height)  // 작은것을 선택(카메라에서 먼 사람을 선택)
 			{
 				outRec = outRecTemp;
 				personCenter.x = outRec.x + (outRec.width*0.5);
@@ -220,6 +211,11 @@ void kGolfPose::detectedPerson(Mat inputImg, float threshold, Rect& outRec, Poin
 					
 		}
 	}
+    for (const auto& box : people) {
+        if (box != outRec && (box & outRec).area()>0) {
+            outRec=Rect();m_failureReason="person_overlap";return;
+        }
+    }
 }
 
 
@@ -387,125 +383,22 @@ float euclidean_distanceW(cv::Point center, cv::Point point, int radius, float h
 
 bool kGolfPose::findBallPosition()
 {
-	//int m_windowSizeHalf = 5;   //if 10=>20 *20 window area =  400 , if 5 ==> 10*10 = 100
-	int pushIdx = m_resultsNum * 0.5;
-	//image size 960 * 540
-	Mat vote(1080, 1920, CV_32FC1, Scalar(0));
-
-	
-	//m_searchFrameRange_Max
-	//int startIdx = m_searchFrameRange_Max * 2;
-	for (int idx = 0; idx < pushIdx; idx++)
-	{
-		if (m_results[idx].ballCandidatesNum > 0)
-		{
-			for (int i = 0; i < m_results[idx].ballCandidatesNum; i++)
-			{
-#if 0
-				if (!m_results[idx].ballCandidates[i].idx)
-				{
-					Point center(m_results[idx].ballCandidates[i].x, m_results[idx].ballCandidates[i].y);
-						int radHalf = (int)(m_results[idx].ballCandidates[i].size *0.5);
-						//float homogeneousValue = sequence[idx].ballCandidates[i].angle;
-
-						cv::Point point;
-						for (int y = center.y - radHalf; y < center.y + radHalf; y++)
-						{
-							for (int x = center.x - radHalf; x < center.x + radHalf; x++)
-							{
-								point.x = x;
-								point.y = y;
-								vote.at<float>(y, x) += euclidean_distanceW(center, point, radHalf, 1);
-							}
-						}
-				}
-				else
-				{
-					Point center(m_results[idx].ballCandidates[i].x, m_results[idx].ballCandidates[i].y);
-						int radHalf = (int)(m_results[idx].ballCandidates[i].size *0.5);
-						//float homogeneousValue = sequence[idx].ballCandidates[i].angle;
-
-						cv::Point point;
-						for (int y = center.y - radHalf; y < center.y + radHalf; y++)
-						{
-							for (int x = center.x - radHalf; x < center.x + radHalf; x++)
-							{
-								point.x = x;
-								point.y = y;
-								vote.at<float>(y, x) += euclidean_distance(center, point, radHalf, 1);
-							}
-						}
-				}
-#else 
-				Point center(m_results[idx].ballCandidates[i].x, m_results[idx].ballCandidates[i].y);
-				int radHalf = (int)(m_results[idx].ballCandidates[i].size *0.5);
-				//float homogeneousValue = sequence[idx].ballCandidates[i].angle;
-
-				
-
-				cv::Point point;
-				for (int y = center.y - radHalf; y < center.y + radHalf; y++)
-				{
-
-					//if (y > 0 && y < 1080)
-					{
-						for (int x = center.x - radHalf; x < center.x + radHalf; x++)
-						{
-							//if (x > 0 && x < 1920)
-							{
-								point.x = x;
-								point.y = y;
-								vote.at<float>(y, x) += euclidean_distance(center, point, radHalf, 1);
-							}
-							
-						}
-					}
-					
-				}
-
-				
-				
-				
-#endif
-			}
-		}
-	}
-	cv::imshow("m_blob", m_blob);
-
-	//cv::imshow("vote", vote);
-	//cv::imwrite(".\\vote.jpg", vote);
-	cv::waitKey(1);
-
-	double min, max;
-	cv::Point min_loc, max_loc;
-	cv::minMaxLoc(vote, &min, &max, &min_loc, &max_loc);
-	vote.release();
-	
-
-#ifdef DebugJJ
-	cout << "max_loc = " << max_loc.x << "  " << max_loc.y << endl;
-	cout << " voting ok " << endl;
-#endif
-
-
-	if (max_loc.x > m_ballRegion.x && max_loc.x < (m_ballRegion.x + m_ballRegion.width))
-	{
-		if (max_loc.y > m_ballRegion.y && max_loc.y < (m_ballRegion.y + m_ballRegion.height))
-		{
-			m_ballPosition = max_loc;
-
-			m_finalBallROI = Rect(m_ballPosition.x - m_windowSizeHalf, m_ballPosition.y - m_windowSizeHalf,
-				m_windowSizeHalf*3, m_windowSizeHalf*3);
-
-			return 1;
-		}
-		return 0;
-	}
-	return 0;
-
-	
-
-	
+    Mat vote(m_ballRegion.size(),CV_64FC1,Scalar(0));
+    int count=0;
+    for(int i=1;i<m_resultsNum/2;++i) for(const auto& b:m_results[i].paperCandidates) {
+        if(b.size<=0) continue;
+        double sigma=40.0/b.size, variance=sigma*sigma;
+        for(int y=0;y<vote.rows;++y) for(int x=0;x<vote.cols;++x) {
+            double dx=x+m_ballRegion.x-b.x,dy=y+m_ballRegion.y-b.y;
+            vote.at<double>(y,x)+=exp(-(dx*dx+dy*dy)/(2*variance))/(2*CV_PI*variance);
+        }
+        ++count;
+    }
+    if(!count) {m_failureReason="no_ball_candidates";return false;}
+    Point peak; minMaxLoc(vote,nullptr,nullptr,nullptr,&peak);
+    m_ballPosition=peak+m_ballRegion.tl();
+    m_finalBallROI=Rect(m_ballPosition.x-5,m_ballPosition.y-5,15,15);
+    return true;
 }
 
 
@@ -528,95 +421,45 @@ bool kGolfPose::checkLeftRighHand(Rect persionROI)
 
 
 
-bool kGolfPose::setROIs(Mat inputColor, Rect& persionROI, Rect& ballROI, Rect& MotionROI)
+bool kGolfPose::setROIs(Mat inputColor, Rect& person, Rect& ball, Rect& motion)
 {
-	//Mat inputColor;
-	//cvtColor(inputGray, inputColor, CV_GRAY2BGR);
-	int m_ballROIBottomMargin = 10;
-	float m_ballROIHeightRatioOfPersionHeight = 0.08f;
-	float m_ballROIWidthRatioOfPersionWidth = 0.02f;   //jj 0924
-
-	float m_motionROIHeightRatioOfPersonHeight = 0.3f;
-	float m_persionDetectionThreshold = 0.5;
-	//int x_margin = 0;
-	//int yCoordiBallEndMargin = 5;
-	//float y_marginRatio = 0.15;
-	//float x_marginRatio = 0.1;
-	
-	//Point centerP;
-	detectedPerson(inputColor, m_persionDetectionThreshold, persionROI, m_personCenter);
-
-	if (persionROI.x != 0)
-	{
-
-		//bool chHand = checkLeftRighHand(persionROI);
-
-		int yCoordiBallStart = (persionROI.y + persionROI.height) - (persionROI.height*m_ballROIHeightRatioOfPersionHeight);
-		int yCoordiBallEnd = yCoordiBallStart + ((persionROI.height*m_ballROIHeightRatioOfPersionHeight)) + m_ballROIBottomMargin;
-		if (yCoordiBallEnd > (inputColor.rows - 1))
-		{
-			yCoordiBallEnd = inputColor.rows - 1;
-		}
-
-		int xCoordiBallStart = persionROI.x + (persionROI.width * m_ballROIWidthRatioOfPersionWidth);
-		int xCoordiBallEnd = persionROI.x + persionROI.width - (persionROI.width * m_ballROIWidthRatioOfPersionWidth);
-		/*ballROI = Rect(xCoordiBallStart, yCoordiBallStart,
-			xCoordiBallEnd - xCoordiBallStart, yCoordiBallEnd - yCoordiBallStart);*/
-
-		//////ballROI = Rect(persionROI.x + persionROI.width+80, persionROI.y+ persionROI.height - 70, 150, 100);
-		
-		//ballROI = Rect(persionROI.x + persionROI.width + 80, persionROI.y + persionROI.height - 80, 150, 110);
-		ballROI = Rect(persionROI.x + persionROI.width + 40, persionROI.y + persionROI.height - 70, 200, 80);
-
-		//MotionROI = Rect(persionROI.x, persionROI.y + (persionROI.height*m_motionROIHeightRatioOfPersonHeight),
-		//	persionROI.width, (persionROI.height*m_motionROIHeightRatioOfPersonHeight));
-
-		//MotionROI = Rect(persionROI.x, persionROI.y,
-		//	persionROI.width, (persionROI.height*m_motionROIHeightRatioOfPersonHeight));
-
-		MotionROI = Rect(persionROI.x, persionROI.y + (persionROI.height*m_motionROIHeightRatioOfPersonHeight) - 20,
-			persionROI.width, (persionROI.height*m_motionROIHeightRatioOfPersonHeight));
-
-		//cout << ballROI.x << " " << ballROI.y << " "  << ballROI.x+ballROI.width << " " << ballROI.y + ballROI.height <<  endl;
-
-		if (ballROI.x < 0 || ballROI.x >= inputColor.cols || ballROI.y < 0 || ballROI.y >= inputColor.rows)
-			return false;
-		if (ballROI.x + ballROI.width >= inputColor.cols || ballROI.y + ballROI.height >= inputColor.rows)
-			return false;
-
-		//추가
-		m_persionExROI = Rect(persionROI.x, persionROI.y, persionROI.width+240, persionROI.height+10);
-
-		m_ballRegionEx = ballROI;
-		m_ballRegionEx.y = m_ballRegionEx.y - m_ballRegionEx.height;
-		m_ballRegionEx.height = m_ballRegionEx.height * 2;
-
-
-		if (m_persionExROI.height > inputColor.rows)
-			return false;
-
-#if 0
-		cout << "m_persionExROI = " << m_persionExROI << endl;
-		Mat tempPerson = inputColor.clone();
-		/*cv::rectangle(tempPerson, persionROI, Scalar(0, 0, 255), 1);
-		cv::rectangle(tempPerson, ballROI, Scalar(0, 255, 255), 1);
-		cv::rectangle(tempPerson, MotionROI, Scalar(255, 0, 0), 1);*/
-		cv::rectangle(tempPerson, m_persionExROI, Scalar(0, 0, 255), 2);
-		//imwrite(".\\personROI.jpg", tempPerson);
-		cv::resize(tempPerson, tempPerson, Size(tempPerson.cols * 0.5, tempPerson.rows * 0.5), 1, 1, CV_INTER_LANCZOS4);
-		cv::imshow("personRec", tempPerson);
-		cvWaitKey(0);
-		std::cout << "ROIs Done" << endl;
-#endif
-		
-		//Mat showTemp = inputColorCResize.clone();
-		//cv::rectangle(showTemp, m_detectedPersonRect, Scalar(0, 0, 255), 2);
-		//cv::rectangle(showTemp, m_ballRegion, Scalar(0, 0, 255), 1);
-		//circle(inputColor, centerP, 2, Scalar(0, 0, 255), 2);
-
-		return true;
-	}
-	return false;
+    detectedPerson(inputColor,0.5f,person,m_personCenter);
+    Rect bounds(0,0,inputColor.cols,inputColor.rows);
+    if(person.empty() || (person & bounds)!=person) {
+        if(m_failureReason.empty()) m_failureReason="invalid_person";
+        return false;
+    }
+    // Cache contains separate full-resolution person masks and their boxes.
+    FileStorage masks(m_paperMaskPath,FileStorage::READ);
+    if(!masks.isOpened()) {m_failureReason="missing_segmentation_cache";return false;}
+    FileNode instances=masks["instances"];
+    double best=0; Mat selected;
+    for(auto it=instances.begin();it!=instances.end();++it) {
+        int x,y,w,h; string file;
+        (*it)["x"]>>x; (*it)["y"]>>y; (*it)["w"]>>w; (*it)["h"]>>h;
+        (*it)["mask"]>>file;
+        Rect box(x,y,w,h); double intersection=(person & box).area();
+        double overlap=intersection/(person.area()+box.area()-intersection);
+        if(overlap>best) {best=overlap;selected=imread(file,0);}
+    }
+    if(selected.empty() || selected.size()!=inputColor.size()) {
+        m_failureReason="missing_matched_person_mask";return false;
+    }
+    double sum=0,count=0;
+    for(int y=person.height/2;y<person.height;++y)
+        for(int x=0;x<person.width;++x) if(selected.at<uchar>(person.y+y,person.x+x)) {
+            sum+=x+0.5; ++count;
+        }
+    if(count==0) {m_failureReason="missing_lower_body_mask";return false;}
+    int xg=(sum/count<=person.width/2.0)?person.x+person.width+40:person.x-240;
+    ball=Rect(xg,person.y+person.height-70,200,80);
+    motion=Rect(person.x,int(person.y+0.3*person.height-20),person.width,int(0.3*person.height));
+    m_ballRegionEx=Rect(ball.x,ball.y-ball.height,ball.width,2*ball.height);
+    m_persionExROI=person | ball;
+    if((ball & bounds)!=ball || (motion & bounds)!=motion || (m_ballRegionEx & bounds)!=m_ballRegionEx) {
+        m_failureReason="invalid_roi";return false;
+    }
+    return true;
 }
 
 // inputROI & out = 3 ch image
@@ -1768,30 +1611,28 @@ bool kGolfPose::blobDetectionIdx(Mat inputImg, int curIdx)
 	
 
 
-	for (size_t f = 0; f < firstTmp.size(); f++)
-	{
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].x = firstTmp[f].pt.x / m_ballImgSizeUpScale + m_ballRegion.x;
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].y = firstTmp[f].pt.y / m_ballImgSizeUpScale + m_ballRegion.y;
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].size = firstTmp[f].size / m_ballImgSizeUpScale;;
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].idx = 0;
-		m_results[curIdx].ballCandidatesNum++;
-		if (m_results[curIdx].ballCandidatesNum > candidatesBall_Num_Max)
-			m_results[curIdx].ballCandidatesNum = candidatesBall_Num_Max - 2;
-		circle(m_blob, CvPoint(firstTmp[f].pt.x, firstTmp[f].pt.y), firstTmp[f].size, Scalar(0, 0, 255), 1, -1);
-	}
+	for (const auto& keypoint : firstTmp) {
+        candidateBall b;
+        b.x=int(keypoint.pt.x/m_ballImgSizeUpScale+m_ballRegion.x);
+        b.y=int(keypoint.pt.y/m_ballImgSizeUpScale+m_ballRegion.y);
+        b.size=int(keypoint.size/m_ballImgSizeUpScale);b.idx=0;
+        m_results[curIdx].paperCandidates.push_back(b);
+        // Preserve the bounded legacy buffer only for unused legacy consumers.
+        if(m_results[curIdx].ballCandidatesNum<candidatesBall_Num_Max)
+            m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum++]=b;
+    }
 
 	//jj 0924
-	for (size_t s = 0; s < secondTmp.size(); s++)
-	{
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].x = secondTmp[s].pt.x / m_ballImgSizeUpScale + m_ballRegion.x;
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].y = secondTmp[s].pt.y / m_ballImgSizeUpScale + m_ballRegion.y;
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].size = secondTmp[s].size / m_ballImgSizeUpScale;;
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].idx = 1;
-		m_results[curIdx].ballCandidatesNum++;
-		if (m_results[curIdx].ballCandidatesNum > candidatesBall_Num_Max)
-			m_results[curIdx].ballCandidatesNum = candidatesBall_Num_Max - 2;
-		
-	}
+	for (const auto& keypoint : secondTmp) {
+        candidateBall b;
+        b.x=int(keypoint.pt.x/m_ballImgSizeUpScale+m_ballRegion.x);
+        b.y=int(keypoint.pt.y/m_ballImgSizeUpScale+m_ballRegion.y);
+        b.size=int(keypoint.size/m_ballImgSizeUpScale);b.idx=0;
+        m_results[curIdx].paperCandidates.push_back(b);
+        // Preserve the bounded legacy buffer only for unused legacy consumers.
+        if(m_results[curIdx].ballCandidatesNum<candidatesBall_Num_Max)
+            m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum++]=b;
+    }
 
 	//for (size_t s = 0; s < circlesEDout.size(); s++)
 	//{
@@ -1804,17 +1645,16 @@ bool kGolfPose::blobDetectionIdx(Mat inputImg, int curIdx)
 	//		m_results[curIdx].ballCandidatesNum = candidatesBall_Num_Max - 2;
 	//}
 
-	for (size_t f = 0; f < thirdTmp.size(); f++)
-	{
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].x = thirdTmp[f].pt.x / m_ballImgSizeUpScale + m_ballRegion.x;
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].y = thirdTmp[f].pt.y / m_ballImgSizeUpScale + m_ballRegion.y;
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].size = thirdTmp[f].size / m_ballImgSizeUpScale;;
-		m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum].idx = 0;
-		m_results[curIdx].ballCandidatesNum++;
-		if (m_results[curIdx].ballCandidatesNum > candidatesBall_Num_Max)
-			m_results[curIdx].ballCandidatesNum = candidatesBall_Num_Max - 2;
-		circle(m_blob, CvPoint(thirdTmp[f].pt.x, thirdTmp[f].pt.y), thirdTmp[f].size, Scalar(255, 0, 0), 1, -1);
-	}
+	for (const auto& keypoint : thirdTmp) {
+        candidateBall b;
+        b.x=int(keypoint.pt.x/m_ballImgSizeUpScale+m_ballRegion.x);
+        b.y=int(keypoint.pt.y/m_ballImgSizeUpScale+m_ballRegion.y);
+        b.size=int(keypoint.size/m_ballImgSizeUpScale);b.idx=0;
+        m_results[curIdx].paperCandidates.push_back(b);
+        // Preserve the bounded legacy buffer only for unused legacy consumers.
+        if(m_results[curIdx].ballCandidatesNum<candidatesBall_Num_Max)
+            m_results[curIdx].ballCandidates[m_results[curIdx].ballCandidatesNum++]=b;
+    }
 
 	
 
@@ -2110,268 +1950,42 @@ void kGolfPose::analysisFactorInit(analysisFactor& tmp)
 
 int kGolfPose::estimationImpactSide()
 {
-	
-	Mat eleEmpty;
-	Mat eleT(3, 3, CV_8U, cv::Scalar(1));
-	int m_impactInitFrameMargin = 5; // 10;  //jj 0924
-	int m_impactDecisionThreshold = m_finalBallROI.width*m_finalBallROI.height*0.1; // 5; // 50 total 20*20 = 400 pixel  , fixed = 0.39
-	int iidx = m_resultsNum - 5;   //margin = 20
-	int impactRange = 0;
-	//bool checkMargin = false;
-
-	int maxCount = 0;
-	int impactMaxIdxTemp = -1;
-	bool first = true;
-
-	float flowEnergyMax = 0;
-	float flowEnergyMin = 9999999999;
-	int bgsMax = 0;
-	int bgsMin = 9999999999;
-
-	for (size_t i = 5; i < iidx; i++)
-	{
-		Mat out;
-		kBGS(m_results[i].preGrayImg, m_results[i].curGrayImg, m_finalBallROI, 0, 0.1, eleT, eleEmpty, out);
-		int ccount = 0;
-		for (int yy = 0; yy < out.rows; yy++)
-		{
-			for (int xx = 0; xx < out.cols; xx++)
-			{
-				if (out.at<uchar>(yy, xx) > 200)
-					ccount++;
-			}
-		}
-
-		m_results[i].localImpactBGSCount = ccount;
-		//cout << m_results[i].localImpactBGSCount << " / " << m_finalBallROI.width*m_finalBallROI.height << endl;
-		Mat outTmp = out.clone();
-		cv::resize(outTmp, outTmp, Size(outTmp.cols * 10, outTmp.rows * 10), 1, 1, CV_INTER_LANCZOS4);
-		//cv::resize(m_results[i].curBlueImg, m_results[i].curBlueImg, Size(outTmp.cols * 0.4, outTmp.rows * 0.4), 1, 1, CV_INTER_LANCZOS4);
-		//imshow("input", m_results[i].curBlueImg);
-		//imshow("pre", m_results[i - 1].curBlueImg);
-
-		//Mat curTemp = m_results[i].curImg.clone();
-		//rectangle(curTemp, m_finalBallROI, Scalar(0, 0, 255), 2, 8, 0);
-		//cv::resize(curTemp, curTemp, Size(curTemp.cols*0.5, curTemp.rows*0.5), 1, 1, CV_INTER_LANCZOS4);
-		//imshow("cur", curTemp);
-		//cv::waitKey(1);
-#ifdef DebugJJ
-		Mat curTemp = m_results[i].curImg.clone();
-		rectangle(curTemp, m_finalBallROI, Scalar(0, 0, 255), 2, 8, 0);
-		cout << m_finalBallROI.width*m_finalBallROI.height << " / " << m_results[i].localImpactBGSCount << " ,,, " << m_results[i].flowEnergySum << " " << i << endl;
-		cv::resize(curTemp, curTemp, Size(curTemp.cols * 0.5, curTemp.rows * 0.5), 1, 1, CV_INTER_LANCZOS4);
-		imshow("cur", curTemp);
-		imshow("bgs", outTmp);
-		cv::waitKey(1);
-#endif
-
-
-		//if ((m_results[i].localImpactBGSCount > m_impactDecisionThreshold))
-		//if ((m_results[i].localImpactBGSCount > bgsMax))
-		//{
-		//	bgsMax = m_results[i].localImpactBGSCount;
-			//cout << "impactRange " << impactRange << endl;
-			//checkMargin = true;
-			//
-			//if (maxCount < m_results[i].localImpactBGSCount)
-			//{
-			//	maxCount = m_results[i].localImpactBGSCount;
-			//	impIdxofResult = i;  // just before the impaction , i-1 : the impaction 
-			//}
-
-			//if (impactRange > m_impactInitFrameMargin)
-			//{
-			//	if (m_results[impIdxofResult].idx == 500)
-			//		return 0;
-			//	else
-			//		return m_results[impIdxofResult].idx;   // -1th image of the detected impact 
-			//}
-			//impactRange++;
-			//
-		
-			//if (m_results[impIdxofResult].idx == 500)
-			//	return 0;
-			//else
-			//	return m_results[i].idx -1;   // -1th image of the detected impact
-
-			
-
-
-
-	//	}
-
-		if (m_results[i].localImpactBGSCount > 0)
-		{
-			if ((m_results[i].localImpactBGSCount > bgsMax))
-			{
-				bgsMax = m_results[i].localImpactBGSCount;
-			}
-
-			if ((m_results[i].localImpactBGSCount < bgsMin))
-			{
-				bgsMin = m_results[i].localImpactBGSCount;
-			}
-		}
-		
-		if (flowEnergyMax < m_results[i].flowEnergySum)
-		{
-			flowEnergyMax = m_results[i].flowEnergySum;
-			//impactMaxIdxTemp = m_results[i].idx;
-		}
-
-		if (flowEnergyMin > m_results[i].flowEnergySum)
-		{
-			if (m_results[i].flowEnergySum > 0)
-			{
-				flowEnergyMin = m_results[i].flowEnergySum;
-			}
-
-			//impactMaxIdxTemp = m_results[i].idx;
-		}
-
-		//if (m_results[i].localImpactBGSCount > 0)
-		//{
-		//	if (flowEnergyMax < m_results[i].flowEnergySum)
-		//	{
-		//		flowEnergyMax = m_results[i].flowEnergySum;
-		//		//impactMaxIdxTemp = m_results[i].idx;
-		//	}
-
-		//	if (flowEnergyMin > m_results[i].flowEnergySum)
-		//	{
-		//		if (m_results[i].flowEnergySum > 0)
-		//		{
-		//			flowEnergyMin = m_results[i].flowEnergySum;
-		//		}
-
-		//		//impactMaxIdxTemp = m_results[i].idx;
-		//	}
-
-		//}
-		
-		//if (true)
-		//{
-
-		//}
-		//cv::waitKey(1);
-	}
-
-
-
-	int bgsCut = 9999999999;
-	int bgsCutValue = 2;
-	float flowCut = 9999999999;
-	float flowCutValue = 2;
-
-	for (size_t i = iidx; i > 1; i--)
-	{
-		//bgs
-		if (m_results[i].localImpactBGSCount > 0)
-		{
-			int gap = abs((m_results[i].localImpactBGSCount - bgsMin) - (bgsMax - m_results[i].localImpactBGSCount));
-			if (bgsCut > gap)
-			{
-				bgsCut = gap;
-				bgsCutValue = m_results[i].localImpactBGSCount*0.5;
-			}
-		}
-
-		////flow
-		if (m_results[i].localImpactBGSCount > 0)
-		{
-			int gapf = abs((m_results[i].flowEnergySum - flowEnergyMin) - (flowEnergyMax - m_results[i].flowEnergySum));
-			if (flowCut > gapf)
-			{
-				flowCut = gapf;
-				flowCutValue = m_results[i].flowEnergySum;
-			}
-		}
-		
-	}
-
-
-	cout << " bgsMin = " << bgsMin << " " << " bgsMax = " << bgsMax << endl;
-	cout << " flowEnergyMin = " << flowEnergyMin << " " << " flowEnergyMax = " << flowEnergyMax << endl;
-	cout << "bgsCut = " << bgsCutValue << ", " << "flowCut = " << flowCutValue << endl;
-
-	for (size_t i = iidx; i > 1; i--)
-	{
-		if ((m_results[i].localImpactBGSCount >= bgsCutValue))
-		//if ((m_results[i].localImpactBGSCount > 0))
-		{
-
-			if (flowCutValue <= m_results[i].flowEnergySum)
-			{
-				flowCutValue = m_results[i].flowEnergySum;
-				impactMaxIdxTemp = m_results[i].idx;
-			}
-
-		}
-	}
-	//cout << "1" << endl;
-
-
-	if (impactMaxIdxTemp == -1)
-		return 0;
-
-	cout << " impactMaxIdxTemp = " << impactMaxIdxTemp << endl;
-	int beforeIdx = 0;
-	int afterIdx = 0;
-	int beforeCC = 0;
-	int afterCC = 0;
-	for (size_t bb = 0; bb < 20; bb++)
-	{
-		if (m_results[impactMaxIdxTemp + bb].localImpactBGSCount == 0)
-		{
-			//cout << "12" << endl;
-			beforeIdx = impactMaxIdxTemp + bb;
-			beforeCC++;
-			if (beforeCC > 2)
-				break;
-
-		}
-		else
-			beforeCC = 0;
-	}
-	cout << "beforeIdx =  " << beforeIdx <<endl;
-	for (size_t aa = 0; aa < 20; aa++)
-	{
-		if (m_results[impactMaxIdxTemp - aa].localImpactBGSCount == 0)
-		{
-			//cout << "15" << endl;
-			afterIdx = impactMaxIdxTemp - aa;
-			afterCC++;
-			if (afterCC > 2)
-				break;
-		}
-		else
-			afterCC = 0;
-	}
-	
-	cout << "afterIdx =   " << afterIdx << endl;
-	Mat out;
-	kBGS(m_results[beforeIdx].preGrayImg, m_results[afterIdx].curGrayImg, m_finalBallROI, 0, 0.1, eleT, eleEmpty, out);
-	//cout << "17" << endl;
-	int ccount = 0;
-	for (int yy = 0; yy < out.rows; yy++)
-	{
-		for (int xx = 0; xx < out.cols; xx++)
-		{
-			if (out.at<uchar>(yy, xx) > 200)
-				ccount++;
-		}
-	}
-	cout << " impactMaxIdxTemp = " << impactMaxIdxTemp << "  " << "beforeIdx-afterIdx bgs ccount = " << ccount << endl;
-	if (ccount > 13)  //2pixel*2pixel*3.14 = 13  // 3pixel*3pixel*3.14 = 29
-	{
-		m_impactIdx = impactMaxIdxTemp;
-		return impactMaxIdxTemp;
-	}
-	else
-		return 0;
-
-
-	
+    Rect gate(m_ballPosition.x-20,m_ballPosition.y-20,40,40);
+    Rect bounds(0,0,m_results[1].curGrayImg.cols,m_results[1].curGrayImg.rows);
+    if((gate & bounds)!=gate || (m_finalBallROI & bounds)!=m_finalBallROI) {
+        m_failureReason="invalid_verification_roi";return -1;
+    }
+    Mat erosion(3,3,CV_8U,Scalar(1)),empty,out;
+    int gateMax=0;
+    for(int i=1;i<=m_resultsNum;++i) {
+        if(m_results[i].preGrayImg.empty() || m_results[i].curGrayImg.empty()) continue;
+        kBGS(m_results[i].preGrayImg,m_results[i].curGrayImg,gate,0,0.1f,erosion,empty,out);
+        gateMax=std::max(gateMax,countNonZero(out>200));
+    }
+    cout<<"AUDIT gate_max "<<gateMax<<endl;
+    if(gateMax<5) {m_failureReason="practice_gate";return -1;}
+    vector<int> change(m_resultsNum+1,-1);
+    vector<double> motion(m_resultsNum+1,-1);
+    for(int i=5;i<=m_resultsNum-6;++i) {
+        if(m_results[i].preGrayImg.empty() || m_results[i].curGrayImg.empty()) {
+            m_failureReason="unavailable_change_score";return -1;
+        }
+        kBGS(m_results[i].preGrayImg,m_results[i].curGrayImg,m_finalBallROI,0,0.1f,erosion,empty,out);
+        change[i]=countNonZero(out>200);
+        motion[i]=m_results[i].flowEnergySum;
+        m_results[i].localImpactBGSCount=change[i];
+    }
+    auto decision=hit::selectCandidate(change,motion,5,m_resultsNum-6);
+    cout<<"AUDIT joint_candidate "<<decision<<endl;
+    if(decision<0) {m_failureReason="no_joint_candidate";return -1;}
+    int before=hit::stableFrame(change,decision,-1,5,m_resultsNum-6);
+    int after=hit::stableFrame(change,decision,1,5,m_resultsNum-6);
+    cout<<"AUDIT stable_neighbors "<<before<<" "<<after<<endl;
+    if(before<0 || after<0) {m_failureReason="missing_stable_neighbor";return -1;}
+    kBGS(m_results[before].curGrayImg,m_results[after].curGrayImg,m_finalBallROI,0,0.1f,erosion,empty,out);
+    cout<<"AUDIT stable_change "<<countNonZero(out>200)<<endl;
+    if(countNonZero(out>200)<=13) {m_failureReason="stable_verification";return -1;}
+    m_impactIdx=decision;return decision;
 }
 
 
@@ -2402,7 +2016,7 @@ int kGolfPose::estimationImpact(Mat initGrayImg)
 		//imshow("input", m_results[i].curBlueImg);
 		imshow("bgs", outTmp);
 		cv::waitKey(1);
-		
+
 		if ((ccount > m_impactDecisionThreshold) && (i > m_impactInitFrameMargin))
 		{
 			//jj 0924
@@ -2456,7 +2070,7 @@ int kGolfPose::estimationTop(int impactIdx)
 		{
 			return 0;
 		}
-		
+
 		int cc = 0;
 
 		for (int r = ss; r < end; r++)
@@ -2469,7 +2083,7 @@ int kGolfPose::estimationTop(int impactIdx)
 		sort(back, back+m_searchFrameRange_Max, resultSortFlow);
 
 		int backIdx = back[0].idx;
-		
+
 
 		if (m_results[backIdx].flowEnergySum*2 < m_results[m_impactIdx].flowEnergySum)
 		{
@@ -2480,7 +2094,7 @@ int kGolfPose::estimationTop(int impactIdx)
 			return 0;
 
 
-		
+
 	}
 }
 
@@ -2726,7 +2340,7 @@ bool kGolfPose::calBGS()
 	cout << "ckeck point 2" << endl;
 
 	int a;
-	for (a = 100; a < totalImgNumMember; a++)
+	for (a = 1; a < totalImgNumMember; a++)
 	{
 		//cv::imshow("ori ", m_results[a].m_curGrayBlurROIImg);
 		Mat preBGS;
@@ -2772,7 +2386,7 @@ bool kGolfPose::calBGS()
 		//cvWaitKey(1);
 
 		cv::morphologyEx(m_results[a].curBGSImg, m_results[a].curBGSImg, cv::MORPH_DILATE, sevenKernel);   //  fifthKernel   sevenKernel
-		
+
 		//cv::imshow("a", m_results[a].curBGSImg);
 		//cvWaitKey(0);
 	}
@@ -2995,68 +2609,19 @@ void kGolfPose::recordMetrics(int idx)
 
 bool kGolfPose::clusteringFixed()
 {
-	//int total = m_filePathsSize - 1;
-
-	for (int i = 1; i < totalImgNumMember; i++)
-	{
-		//imshow("clustering_before", m_curImg[i].curBGSImg);
-		cv::Mat labels, stats, centroids;
-		int nlabels = cv::connectedComponentsWithStats(m_results[i].curBGSImg, labels, stats, centroids, 8, CV_32S);
-
-
-		vector<cciIdx> countLabel;
-		int maxLabel = 0;
-		int maxLabelcci = 0;
-
-		//cv::imshow("clusteringFixed", labels);
-		//cout << nlabels << endl;
-		//cvWaitKey(0);
-
-		if (nlabels < 2)
-			continue;
-
-		//find label index max 2
-		for (int b = 1; b < nlabels; b++)
-		{
-			cciIdx temp;
-			int cci = 0;
-			for (int yyy = 0; yyy < labels.rows; yyy++)
-			{
-				for (int xxx = 0; xxx < labels.cols; xxx++)
-				{
-					if (labels.at<int>(yyy, xxx) == b)
-						cci++;
-				}
-			}
-			temp.cc = cci;  //area
-			temp.idx = b;
-			countLabel.push_back(temp);
-		}
-
-		cout << "nlabels = " << nlabels << endl;
-
-		//area가 큰게 먼저
-		std::sort(countLabel.begin(), countLabel.end(), compare_cciIdx);
-
-		int maxY = 0;
-		for (int yyy = 0; yyy < labels.rows; yyy++)
-		{
-			for (int xxx = 0; xxx < labels.cols; xxx++)
-			{
-				if (labels.at<int>(yyy, xxx) == countLabel[0].idx && countLabel[0].idx != 0)
-				{
-					if (maxY < yyy)
-					{
-						maxY = yyy;
-						m_results[i].endP = Point(xxx, yyy);
-					}
-				}
-			}
-		}
-
-	}
-
-	return 1;
+    for(int i=1;i<totalImgNumMember;++i) {
+        auto& r=m_results[i]; r.ckSkipEndPoint=true;r.endP=Point(-1,-1);
+        if(r.curBGSImg.empty() || r.preGrayImg.empty() || r.fuGrayImg.empty()) continue;
+        Mat labels,stats,centroids;
+        int n=connectedComponentsWithStats(r.curBGSImg,labels,stats,centroids,8,CV_32S);
+        if(n<=1) continue;
+        int largest=1;
+        for(int k=2;k<n;++k) if(stats.at<int>(k,CC_STAT_AREA)>stats.at<int>(largest,CC_STAT_AREA)) largest=k;
+        for(int y=0;y<labels.rows;++y) for(int x=0;x<labels.cols;++x)
+            if(labels.at<int>(y,x)==largest && y>r.endP.y) r.endP=Point(x,y);
+        r.ckSkipEndPoint=false;
+    }
+    return true;
 }
 
 

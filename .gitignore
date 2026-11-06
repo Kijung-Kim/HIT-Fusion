@@ -37,3 +37,10 @@ back.jpg
 opencv_ffmpeg340_64.dll
 opencv_world340.dll
 opencv_world340d.dll
+
+# Local reproduction dependencies and generated project
+paper.generated.vcxproj
+*.pt
+__pycache__/
+reproduction/
+.venv/

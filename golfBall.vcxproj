@@ -132,7 +132,7 @@
     <ClCompile Include="EDColor.cpp" />
     <ClCompile Include="EDLines.cpp" />
     <ClCompile Include="EDPF.cpp" />
-    <ClCompile Include="golfBall.cpp" />
+    <ClCompile Include="paper_main.cpp" />
     <ClCompile Include="kGolfPose.cpp" />
     <ClCompile Include="NFA.cpp" />
     <ClCompile Include="spray.cpp" />

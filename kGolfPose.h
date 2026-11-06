@@ -50,6 +50,7 @@ struct analysisFactor
 	//int detectedBall;
 	float flowEnergySum;
 	candidateBall ballCandidates[candidatesBall_Num_Max];
+    std::vector<candidateBall> paperCandidates;
 	int ballCandidatesNum;
 	//int impactIdx;
 	//int topOfBackIdx;
@@ -171,6 +172,8 @@ public:
 	
 	int m_ballImgSizeUpScale;
 	Net kNet;
+    string m_paperMaskPath;
+    string m_failureReason;
 
 	bool m_firstCheckROI;
 	Rect m_detectedPersonRect;

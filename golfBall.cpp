@@ -30,6 +30,7 @@ std::vector<string> loadPath(string m_path, string m_ext)
 
 
 	DIR* dir = opendir(m_path.c_str());
+    if(!dir) return m_TrainImgFullPath;
 	dirent* ptr;
 
 	while ((ptr = readdir(dir)) != NULL)
@@ -458,7 +459,7 @@ void balance_white(cv::Mat mat) {
 					val = vmin[j];
 				if (val > vmax[j])
 					val = vmax[j];
-				ptr[x * 3 + j] = static_cast<uchar>((val - vmin[j]) * 255.0 / (vmax[j] - vmin[j]));
+				ptr[x * 3 + j] = static_cast<uchar>((vmax[j] == vmin[j] ? val : (val - vmin[j]) * 255.0 / (vmax[j] - vmin[j])));
 			}
 		}
 	}

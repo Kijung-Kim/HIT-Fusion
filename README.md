@@ -2,6 +2,12 @@
 
 Visual Studio C++ project for golf-ball related image/video processing.
 
+The default entry point now runs the manuscript reconstruction. See
+[REPRODUCTION.md](REPRODUCTION.md) for build/run commands, segmentation, and
+ground-truth evaluation, and [PAPER_ALIGNMENT.md](PAPER_ALIGNMENT.md) for the
+audit and unresolved reproduction limits. The archived 97.30% is not yet a
+verified result of the revised implementation.
+
 ![Project Abstract](assets/GAbstract2.png)
 
 ## Repository Structure (recommended)
