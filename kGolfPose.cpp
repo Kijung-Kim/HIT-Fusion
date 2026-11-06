@@ -387,8 +387,7 @@ bool kGolfPose::findBallPosition()
     int count=0;
     for(int i=1;i<m_resultsNum/2;++i) for(const auto& b:m_results[i].paperCandidates) {
         if(b.size<=0) continue;
-        // v2: improved on local 72-clip GT: 52-> 60 correct; not an independent test.
-        // Equal candidate peak=1; size-dependent bandwidth retained. See UNIT_PEAK_REVISION.md.
+        // 개선버전 2
         for(int y=0;y<vote.rows;++y) for(int x=0;x<vote.cols;++x) {
             double dx=x+m_ballRegion.x-b.x,dy=y+m_ballRegion.y-b.y;
             vote.at<double>(y,x)+=hit::unitPeakVote(dx,dy,b.size);
