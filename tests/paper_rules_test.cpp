@@ -2,6 +2,15 @@
 #include <cassert>
 #include <iostream>
 int main() {
+    std::vector<int> boundary(22,1);
+    boundary[18]=boundary[19]=boundary[20]=0;
+    assert(hit::stableFrame(boundary,0,1,0,21)==-1);
+    assert(hit::stableNeighborFrame(boundary,0,1,0,21)==20);
+    assert(hit::stableNeighborFrame(boundary,0,1,0,19)==-1);
+    boundary[18]=1;boundary[21]=0;
+    assert(hit::stableNeighborFrame(boundary,0,1,0,21)==-1);
+    assert(hit::stableNeighborFrame({0,0,0,2},3,-1,0,3)==0);
+    assert(hit::stableNeighborFrame({0,0,0},0,1,0,2)==-1);
     for(double diameter : {7.0,10.0,20.0,40.0}) {
         assert(hit::unitPeakVote(0,0,diameter)==1.0);
         assert(std::abs(hit::unitPeakVote(40.0/diameter,0,diameter)-std::exp(-0.5))<1e-12);

@@ -60,4 +60,14 @@ inline int refine(int candidate,const std::vector<int>& heights) {
     }
     return best<0?candidate:best;
 }
+inline int stableNeighborFrame(const std::vector<int>& s,int candidate,int direction,int lo,int hi) {
+    int run=0;
+    for(int offset=1;offset<=20;++offset) {
+        int i=candidate+direction*offset;
+        if(i<lo || i>hi || i<0 || i>=int(s.size())) break;
+        run=(s[i]==0)?run+1:0;
+        if(run==3) return i;
+    }
+    return -1;
+}
 }

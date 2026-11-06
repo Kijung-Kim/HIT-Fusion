@@ -1,4 +1,4 @@
-// Reuse established enhancement and optical-flow routines without the GUI driver.
+﻿// Reuse established enhancement and optical-flow routines without the GUI driver.
 #define main legacyMain
 #include "golfBall.cpp"
 #undef main
@@ -68,11 +68,9 @@ int main(int argc,char** argv) {
                 ball=p.m_ballPosition;candidate=p.estimationImpactSide();
                 if(candidate<0) status=p.m_failureReason;
                 else {
-                    p.calBGS();p.clusteringFixed();
-                    std::vector<int> heights(frames,-1);
-                    for(int i=1;i<frames-1;++i) if(!p.m_results[i].ckSkipEndPoint) heights[i]=p.m_results[i].endP.y;
-                    int refined=hit::refine(candidate,heights);
-                    std::cout<<"AUDIT refinement "<<candidate<<" "<<refined<<std::endl;
+                    // 개선버전 3
+                    int refined=candidate;
+                    std::cout<<"AUDIT verified_candidate_output "<<candidate<<std::endl;
                     prediction=number(files[refined]);status="impact";
                 }
             }

@@ -1978,8 +1978,9 @@ int kGolfPose::estimationImpactSide()
     auto decision=hit::selectCandidate(change,motion,5,m_resultsNum-6);
     cout<<"AUDIT joint_candidate "<<decision<<endl;
     if(decision<0) {m_failureReason="no_joint_candidate";return -1;}
-    int before=hit::stableFrame(change,decision,-1,5,m_resultsNum-6);
-    int after=hit::stableFrame(change,decision,1,5,m_resultsNum-6);
+    // 개선버전 3
+    int before=hit::stableNeighborFrame(change,decision,-1,5,m_resultsNum-6);
+    int after=hit::stableNeighborFrame(change,decision,1,5,m_resultsNum-6);
     cout<<"AUDIT stable_neighbors "<<before<<" "<<after<<endl;
     if(before<0 || after<0) {m_failureReason="missing_stable_neighbor";return -1;}
     kBGS(m_results[before].curGrayImg,m_results[after].curGrayImg,m_finalBallROI,0,0.1f,erosion,empty,out);
