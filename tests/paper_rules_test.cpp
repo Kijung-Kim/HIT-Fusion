@@ -2,6 +2,12 @@
 #include <cassert>
 #include <iostream>
 int main() {
+    for(double diameter : {7.0,10.0,20.0,40.0}) {
+        assert(hit::unitPeakVote(0,0,diameter)==1.0);
+        assert(std::abs(hit::unitPeakVote(40.0/diameter,0,diameter)-std::exp(-0.5))<1e-12);
+    }
+    assert(hit::unitPeakVote(0,0,0)==0);
+    assert(std::abs(hit::unitPeakVote(3,4,10)-hit::unitPeakVote(-3,-4,10))<1e-12);
     // Latest midpoint representative, earliest equal eligible maximum.
     assert(hit::selectCandidate({2,4,6,4},{1,8,9,8},0,3)==2);
     assert(hit::selectCandidate({4,4,4},{8,8,8},0,2)==0);

@@ -12,6 +12,12 @@
 
 // Manuscript Section III-G. Indices are stored-record indices, not filenames.
 namespace hit {
+// Revised voting rule: equal peak per candidate; bandwidth still depends on size.
+inline double unitPeakVote(double dx,double dy,double diameter) {
+    if(!std::isfinite(diameter) || diameter<=0) return 0;
+    const double sigma=40.0/diameter;
+    return std::exp(-(dx*dx+dy*dy)/(2*sigma*sigma));
+}
 inline int selectCandidate(const std::vector<int>& s,const std::vector<double>& m,int lo,int hi) {
     if(lo<0 || hi<lo || hi>=int(s.size()) || s.size()!=m.size()) return -1;
     int smin=std::numeric_limits<int>::max(),smax=0;
