@@ -1,4 +1,4 @@
-#include "kGolfPose.h"
+ï»¿#include "kGolfPose.h"
 #include "paper_rules.h"
 #include <limits>
 #include <cmath>
@@ -90,7 +90,7 @@ kGolfPose::kGolfPose(string cfg, string weight)
 	//}
 	m_onece = true;
 
-	// CSV ÆÄÀÏ ¿­±â ¹× Çì´õ ¾²±â
+	// CSV íŒŒì¼ ì—´ê¸° ë° í—¤ë” ì“°ê¸°
 	m_csvFile.open("metrics.csv");
 	m_csvFile << "frame,flowEnergy,bgsCount\n";
 }
@@ -110,7 +110,7 @@ void kGolfPose::initResult()
 
 kGolfPose::~kGolfPose()
 {
-	// CSV ´İ±â
+	// CSV ë‹«ê¸°
 	if (m_csvFile.is_open())
 		m_csvFile.close();
 	//for (std::size_t i = 0; i < m_result_Max; ++i)
@@ -202,7 +202,7 @@ void kGolfPose::detectedPerson(Mat inputImg, float threshold, Rect& outRec, Poin
 				personCenter.y = outRec.y + (outRec.height*0.5);
 			}*/
 			people.push_back(outRecTemp);
-            if (outRec.empty() || outRecTemp.height < outRec.height)  // ÀÛÀº°ÍÀ» ¼±ÅÃ(Ä«¸Ş¶ó¿¡¼­ ¸Õ »ç¶÷À» ¼±ÅÃ)
+            if (outRec.empty() || outRecTemp.height < outRec.height)  // ì‘ì€ê²ƒì„ ì„ íƒ(ì¹´ë©”ë¼ì—ì„œ ë¨¼ ì‚¬ëŒì„ ì„ íƒ)
 			{
 				outRec = outRecTemp;
 				personCenter.x = outRec.x + (outRec.width*0.5);
@@ -389,7 +389,7 @@ bool kGolfPose::findBallPosition()
     for(int i=1;i<m_resultsNum/2;++i) for(const auto& b:m_results[i].paperCandidates) {
         if(b.size<=0) continue;
         if(m_v4Occlusion && !m_otherPersonMask.empty() && m_otherPersonMask.at<uchar>(b.y,b.x)>0) continue;
-        // °³¼±¹öÀü 2
+        // ê°œì„ ë²„ì „ 4
         for(int y=0;y<vote.rows;++y) for(int x=0;x<vote.cols;++x) {
             double dx=x+m_ballRegion.x-b.x,dy=y+m_ballRegion.y-b.y;
             vote.at<double>(y,x)+=hit::unitPeakVote(dx,dy,b.size);
@@ -802,7 +802,7 @@ void kGolfPose::blobDetection(Mat inputImg, analysisFactor& ballCandidates)
 	//pyrMeanShiftFiltering(bilateralFilterOutRed, bilateralFilterOutRed, m_meanShiftSp, m_meanShiftSr);
 	//cv::blur(inputImg, inputImg, Size(3, 3));
 	//Mat threshold_output;
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//double resultTime = (double)(end - start);
 	//printf("bilateralFilterjj time : %f\n", resultTime);
 	//imwrite(".\\BF.jpg", bilateralFilterOutRed);
@@ -857,36 +857,36 @@ void kGolfPose::blobDetection(Mat inputImg, analysisFactor& ballCandidates)
 	
 
 	cv::findContours(cannyOut,
-		contours,    // ¿Ü°û¼± º¤ÅÍ 
-		CV_RETR_EXTERNAL,  // ¿ÜºÎ ¿Ü°û¼± °Ë»ö
-		CV_CHAIN_APPROX_NONE); // °¢ ¿Ü°û¼±ÀÇ ¸ğµç È­¼Ò Å½»ö
-		// ÁöÁ¤µÈ ÇÃ·¡±× - Ã¹ ¹øÂ°´Â ¿ÜºÎ ¿Ü°û¼±ÀÌ ÇÊ¿äÇÔÀ» ³ªÅ¸³»¸ç °´Ã¼ÀÇ ±¸¸ÛÀ» ¹«½Ã
-		// µÎ ¹øÂ° ÇÃ·¡±×´Â ¿Ü°û¼±ÀÇ ÇüÅÂ¸¦ ÁöÁ¤ - ÇöÀç ¿É¼ÇÀ¸·Î º¤ÅÍ´Â ¿Ü°û¼± ³»ÀÇ ¸ğµç È­¼Ò ¸ñ·Ï
-		// CV_CHAIN_APPROX_SIMPLE ÇÃ·¡±×·Î ÇÏ¸é ¸¶Áö¸· Á¡ÀÌ ¼öÆò ¶Ç´Â ¼öÁ÷, ´ë°¢¼± ¿Ü°û¼±¿¡ Æ÷ÇÔµÊ
-		// ´Ù¸¥ ÇÃ·¡±×´Â °£°áÇÑ Ç¥ÇöÀ» ¾ò±â À§ÇØ ¿Ü°û¼±ÀÇ Á¤±³ÇÏ°Ô ¿¬°áµÈ ±Ù»çÄ¡¸¦ Á¦°ø
-	   // ÀÌÀü ¿µ»óÀ¸·Î 9°³ ¿Ü°û¼±À» contours.size()·Î ¾òÀ½
-	   // drawContours() ÇÔ¼ö´Â ¿µ»ó ³»ÀÇ °¢ ¿Ü°û¼±À» ±×¸± ¼ö ÀÖ´Â ÇÔ¼ö
-	   // ÇÏ¾á ¿µ»ó ³» °ËÀº ¿Ü°û¼± ±×¸®±â
+		contours,    // ì™¸ê³½ì„  ë²¡í„°
+		CV_RETR_EXTERNAL,  // ì™¸ë¶€ ì™¸ê³½ì„  ê²€ìƒ‰
+		CV_CHAIN_APPROX_NONE); // ê° ì™¸ê³½ì„ ì˜ ëª¨ë“  í™”ì†Œ íƒìƒ‰
+		// ì§€ì •ëœ í”Œë˜ê·¸ - ì²« ë²ˆì§¸ëŠ” ì™¸ë¶€ ì™¸ê³½ì„ ì´ í•„ìš”í•¨ì„ ë‚˜íƒ€ë‚´ë©° ê°ì²´ì˜ êµ¬ë©ì„ ë¬´ì‹œ
+		// ë‘ ë²ˆì§¸ í”Œë˜ê·¸ëŠ” ì™¸ê³½ì„ ì˜ í˜•íƒœë¥¼ ì§€ì • - í˜„ì¬ ì˜µì…˜ìœ¼ë¡œ ë²¡í„°ëŠ” ì™¸ê³½ì„  ë‚´ì˜ ëª¨ë“  í™”ì†Œ ëª©ë¡
+		// CV_CHAIN_APPROX_SIMPLE í”Œë˜ê·¸ë¡œ í•˜ë©´ ë§ˆì§€ë§‰ ì ì´ ìˆ˜í‰ ë˜ëŠ” ìˆ˜ì§, ëŒ€ê°ì„  ì™¸ê³½ì„ ì— í¬í•¨ë¨
+		// ë‹¤ë¥¸ í”Œë˜ê·¸ëŠ” ê°„ê²°í•œ í‘œí˜„ì„ ì–»ê¸° ìœ„í•´ ì™¸ê³½ì„ ì˜ ì •êµí•˜ê²Œ ì—°ê²°ëœ ê·¼ì‚¬ì¹˜ë¥¼ ì œê³µ
+	   // ì´ì „ ì˜ìƒìœ¼ë¡œ 9ê°œ ì™¸ê³½ì„ ì„ contours.size()ë¡œ ì–»ìŒ
+	   // drawContours() í•¨ìˆ˜ëŠ” ì˜ìƒ ë‚´ì˜ ê° ì™¸ê³½ì„ ì„ ê·¸ë¦´ ìˆ˜ ìˆëŠ” í•¨ìˆ˜
+	   // í•˜ì–€ ì˜ìƒ ë‚´ ê²€ì€ ì™¸ê³½ì„  ê·¸ë¦¬ê¸°
 	cv::Mat result(bilateralFilterOutRed.size(), CV_8U, cv::Scalar(255));
 	cv::drawContours(result, contours,
-		-1,    // ¸ğµç ¿Ü°û¼± ±×¸®±â
-		cv::Scalar(0), // °Ë°Ô
-		2);    // µÎ²²¸¦ 2·Î
-		// ¼¼ ¹øÂ° ÆÄ¶ó¹ÌÅÍ°¡ À½¼ö¶ó¸é ¸ğµç ¿Ü°û¼±ÀÌ ±×·ÁÁü
-		// ¹İ¸é ±×·ÁÁ®¾ß ÇÏ´Â ¿Ü°û¼±ÀÇ Ã·ÀÚ¸¦ ÁöÁ¤ÇÒ ¼ö ÀÖÀ½
+		-1,    // ëª¨ë“  ì™¸ê³½ì„  ê·¸ë¦¬ê¸°
+		cv::Scalar(0), // ê²€ê²Œ
+		2);    // ë‘ê»˜ë¥¼ 2ë¡œ
+		// ì„¸ ë²ˆì§¸ íŒŒë¼ë¯¸í„°ê°€ ìŒìˆ˜ë¼ë©´ ëª¨ë“  ì™¸ê³½ì„ ì´ ê·¸ë ¤ì§
+		// ë°˜ë©´ ê·¸ë ¤ì ¸ì•¼ í•˜ëŠ” ì™¸ê³½ì„ ì˜ ì²¨ìë¥¼ ì§€ì •í•  ìˆ˜ ìˆìŒ
 
 
 	vector<Vec3f> circles;
-	// 2,   // ´©Àû±â ÇØ»óµµ(¿µ»óÅ©±â/2)
-	//50,  // µÎ ¿ø °£ÀÇ ÃÖ¼Ò °Å¸®
-	//	200, // Ä³´Ï ÃÖ´ë °æ°è°ª
-	//	100, // ÅõÇ¥ ÃÖ¼Ò °³¼ö
-	//	25, 100); // ÃÖ¼Ò¿Í ÃÖ´ë ¹İÁö¸§
+	// 2,   // ëˆ„ì ê¸° í•´ìƒë„(ì˜ìƒí¬ê¸°/2)
+	//50,  // ë‘ ì› ê°„ì˜ ìµœì†Œ ê±°ë¦¬
+	//	200, // ìºë‹ˆ ìµœëŒ€ ê²½ê³„ê°’
+	//	100, // íˆ¬í‘œ ìµœì†Œ ê°œìˆ˜
+	//	25, 100); // ìµœì†Œì™€ ìµœëŒ€ ë°˜ì§€ë¦„
 	cv::HoughCircles(bilateralFilterOutRed, circles, HOUGH_GRADIENT, 1, 
-		50,  // µÎ ¿ø °£ÀÇ ÃÖ¼Ò °Å¸®
-		20,   // Ä³´Ï ÃÖ´ë °æ°è°ª
-		20,   // ÅõÇ¥ ÃÖ¼Ò °³¼ö 10
-		10, 20);  // ÃÖ¼Ò¿Í ÃÖ´ë ¹İÁö¸§
+		50,  // ë‘ ì› ê°„ì˜ ìµœì†Œ ê±°ë¦¬
+		20,   // ìºë‹ˆ ìµœëŒ€ ê²½ê³„ê°’
+		20,   // íˆ¬í‘œ ìµœì†Œ ê°œìˆ˜ 10
+		10, 20);  // ìµœì†Œì™€ ìµœëŒ€ ë°˜ì§€ë¦„
 	Mat houghOut = bilateralFilterOutRed.clone();
 	cv::cvtColor(houghOut, houghOut, CV_GRAY2BGR);
 
@@ -927,7 +927,7 @@ void kGolfPose::blobDetection(Mat inputImg, analysisFactor& ballCandidates)
 	//start = clock();
 	Mat thresholdRe;
 	threshold(bilateralFilterOutRed, thresholdRe, 140, 255, THRESH_BINARY | THRESH_OTSU);
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//resultTime = (double)(end - start);
 	//printf("threshold time : %f\n", resultTime);
 	//cv::imshow("thresholdRe", thresholdRe);
@@ -970,7 +970,7 @@ void kGolfPose::blobDetection(Mat inputImg, analysisFactor& ballCandidates)
 	detectorSecond->detect(thresholdRe, secondTmp);
 	//detectorSecond->detect(cannyOut, secondTmp);
 
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//resultTime = (double)(end - start);
 	//printf("SimpleBlobDetector time : %f\n", resultTime);
 
@@ -1495,7 +1495,7 @@ bool kGolfPose::blobDetectionIdx(Mat inputImg, int curIdx)
 	//pyrMeanShiftFiltering(bilateralFilterOutRed, bilateralFilterOutRed, m_meanShiftSp, m_meanShiftSr);
 	//cv::blur(inputImg, inputImg, Size(3, 3));
 	//Mat threshold_output;
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//double resultTime = (double)(end - start);
 	//printf("bilateralFilterjj time : %f\n", resultTime);
 	//imwrite(".\\BF.jpg", bilateralFilterOutRed);
@@ -1535,16 +1535,16 @@ bool kGolfPose::blobDetectionIdx(Mat inputImg, int curIdx)
 	
 /*
 	vector<Vec3f> circles;
-	// 2,   // ´©Àû±â ÇØ»óµµ(¿µ»óÅ©±â/2)
-	//50,  // µÎ ¿ø °£ÀÇ ÃÖ¼Ò °Å¸®
-	//	200, // Ä³´Ï ÃÖ´ë °æ°è°ª
-	//	100, // ÅõÇ¥ ÃÖ¼Ò °³¼ö
-	//	25, 100); // ÃÖ¼Ò¿Í ÃÖ´ë ¹İÁö¸§
+	// 2,   // ëˆ„ì ê¸° í•´ìƒë„(ì˜ìƒí¬ê¸°/2)
+	//50,  // ë‘ ì› ê°„ì˜ ìµœì†Œ ê±°ë¦¬
+	//	200, // ìºë‹ˆ ìµœëŒ€ ê²½ê³„ê°’
+	//	100, // íˆ¬í‘œ ìµœì†Œ ê°œìˆ˜
+	//	25, 100); // ìµœì†Œì™€ ìµœëŒ€ ë°˜ì§€ë¦„
 	cv::HoughCircles(outChannel, circles, HOUGH_GRADIENT, 1,
-		50,  // µÎ ¿ø °£ÀÇ ÃÖ¼Ò °Å¸®
-		50,   // Ä³´Ï ÃÖ´ë °æ°è°ª
-		20,   // ÅõÇ¥ ÃÖ¼Ò °³¼ö 10
-		10, 20);  // ÃÖ¼Ò¿Í ÃÖ´ë ¹İÁö¸§
+		50,  // ë‘ ì› ê°„ì˜ ìµœì†Œ ê±°ë¦¬
+		50,   // ìºë‹ˆ ìµœëŒ€ ê²½ê³„ê°’
+		20,   // íˆ¬í‘œ ìµœì†Œ ê°œìˆ˜ 10
+		10, 20);  // ìµœì†Œì™€ ìµœëŒ€ ë°˜ì§€ë¦„
 	Mat houghOut = outChannel.clone();
 	cv::cvtColor(houghOut, houghOut, CV_GRAY2BGR);
 	for (size_t i = 0; i < circles.size(); i++)
@@ -1576,7 +1576,7 @@ bool kGolfPose::blobDetectionIdx(Mat inputImg, int curIdx)
 	//start = clock();
 	//Mat thresholdRe;
 	//threshold(outChannel, thresholdRe, 0, 255, THRESH_OTSU);
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//resultTime = (double)(end - start);
 	//printf("threshold time : %f\n", resultTime);
 	
@@ -1625,7 +1625,7 @@ bool kGolfPose::blobDetectionIdx(Mat inputImg, int curIdx)
 	//detectorSecond->detect(thresholdReThird, thirdTmp);
 	//detectorSecond->detect(cannyOut, secondTmp);
 
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//resultTime = (double)(end - start);
 	//printf("SimpleBlobDetector time : %f\n", resultTime);
 
@@ -1850,7 +1850,7 @@ void kGolfPose::kGolfBallDetection(analysisFactor& analy)
 	//Mat out = inputCC[0].clone();
 
 
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//double resultTime = (double)(end - start);
 	//printf("imgEnhance : %f\n", resultTime);
 
@@ -1865,7 +1865,7 @@ void kGolfPose::kGolfBallDetection(analysisFactor& analy)
 	//	outBallCandidates.push_back(tempk);
 	//start = clock();
 	blobDetection(BallROIInput, analy);
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//resultTime = (double)(end - start);
 	//printf("blobDetection : %f\n", resultTime);
 	for (int b = 0; b < analy.ballCandidatesNum; b++)
@@ -1926,7 +1926,7 @@ void kGolfPose::kGolfBallDetectionIdx(int curIdx)
 	//Mat out = inputCC[0].clone();
 
 
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//double resultTime = (double)(end - start);
 	//printf("imgEnhance : %f\n", resultTime);
 
@@ -1947,7 +1947,7 @@ void kGolfPose::kGolfBallDetectionIdx(int curIdx)
  
 	bool ck = blobDetectionIdx(BallROIout, curIdx);
 
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//resultTime = (double)(end - start);
 	//printf("blobDetection : %f\n", resultTime);
 	
@@ -2004,11 +2004,11 @@ int kGolfPose::estimationImpactSide()
         motion[i]=m_results[i].flowEnergySum;
         m_results[i].localImpactBGSCount=change[i];
     }
-    // °³¼±¹öÀü 4
+    // ê°œì„ ë²„ì „ 4
     auto decision=hit::selectCandidate(change,motion,5,m_resultsNum-6,m_v4Temporal);
     cout<<"AUDIT joint_candidate "<<decision<<endl;
     if(decision<0) {m_failureReason="no_joint_candidate";return -1;}
-    // °³¼±¹öÀü 3
+    // ê°œì„ ë²„ì „ 4
     int before=hit::stableNeighborFrame(change,decision,-1,5,m_resultsNum-6,m_v4Temporal?13:0);
     int after=hit::stableNeighborFrame(change,decision,1,5,m_resultsNum-6,m_v4Temporal?13:0);
     cout<<"AUDIT stable_neighbors "<<before<<" "<<after<<endl;
@@ -2275,12 +2275,12 @@ void kGolfPose::kGolfPoseDetection(Mat curRedImg, Mat curBlueImg, int curImgInde
 	//clock_t start, end;
 	//start = clock();
 	kGolfBallDetection(analysisFactorTemp);
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//double resultTime = (double)(end - start);
 	//printf("kGolfBallDetection total : %f\n", resultTime);
 	//start = clock();
 	kFlowEstimation(analysisFactorTemp);
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//resultTime = (double)(end - start);
 	//printf("kFlowEstimation total : %f\n", resultTime);
 
@@ -2326,7 +2326,7 @@ void kGolfPose::kGolfPoseDetectionIdx(int curImgIndex)
 
 
 
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//double resultTime = (double)(end - start);
 	//printf("kGolfBallDetection total : %f\n", resultTime);
 	//start = clock();
@@ -2334,14 +2334,14 @@ void kGolfPose::kGolfPoseDetectionIdx(int curImgIndex)
 	kFlowEstimationIdx(curImgIndex);
 
 
-	//end = clock(); //½Ã°£ ÃøÁ¤ ³¡
+	//end = clock(); //ì‹œê°„ ì¸¡ì • ë
 	//resultTime = (double)(end - start);
 	//printf("kFlowEstimation total : %f\n", resultTime);
 
 	//m_results[curImgIndex].flowEnergySum = analysisFactorTemp.flowEnergySum;
 	//m_results[curImgIndex].ballCandidates = analysisFactorTemp.ballCandidates;
 
-	// **¿©±â¿¡¼­ ÁöÇ¥¸¦ ±â·Ï**
+	// **ì—¬ê¸°ì—ì„œ ì§€í‘œë¥¼ ê¸°ë¡**
 	recordMetrics(curImgIndex);
 
 
@@ -2383,8 +2383,8 @@ bool kGolfPose::calBGS()
 		BGSPre->setDetectShadows(0);
 		BGSPre->setBackgroundRatio(1);
 
-		//pre¸¦ ±âÁØÀ¸·Î cur »©?
-		BGSPre->apply(m_results[a].m_preGrayBlurROIImg, preBGS); //Ã³À½ pre ³Ö¾îÁÜ
+		//preë¥¼ ê¸°ì¤€ìœ¼ë¡œ cur ë¹¼?
+		BGSPre->apply(m_results[a].m_preGrayBlurROIImg, preBGS); //ì²˜ìŒ pre ë„£ì–´ì¤Œ
 		BGSPre->apply(m_results[a].m_curGrayBlurROIImg, preBGS);
 		//cv::imshow("b-PrCu", preBGS);
 		//cvWaitKey(1);
@@ -2464,7 +2464,7 @@ bool kGolfPose::calBGS()
 //jj
 bool compare_cciIdx(const cciIdx& x, const cciIdx& y)
 {
-	return x.cc > y.cc;   // > : Å« °ªÀÌ Ã³À½¿¡ 
+	return x.cc > y.cc;   // > : í° ê°’ì´ ì²˜ìŒì—
 }
 
 bool kGolfPose::clustering()
@@ -2500,7 +2500,7 @@ bool kGolfPose::clustering()
 			countLabel.push_back(temp);
 		}
 
-		//area°¡ Å«°Ô ¸ÕÀú
+		//areaê°€ í°ê²Œ ë¨¼ì €
 		std::sort(countLabel.begin(), countLabel.end(), compare_cciIdx);
 
 		//cal distance
@@ -2508,7 +2508,7 @@ bool kGolfPose::clustering()
 		Point maxAreaSecondEndP = Point(0, 0);
 		float diTemp = 0;
 
-		//area°¡ Á¦ÀÏ Å«°Å
+		//areaê°€ ì œì¼ í°ê±°
 		if (countLabel.size() > 0)
 		{
 			int maxX = 0;
@@ -2536,7 +2536,7 @@ bool kGolfPose::clustering()
 
 		float diTempSecond = 0;
 
-		//area°¡ µÎ¹øÂ°·Î Å«°Å
+		//areaê°€ ë‘ë²ˆì§¸ë¡œ í°ê±°
 		if (countLabel.size() > 1)
 		{
 			int maxX = 0;
@@ -2571,7 +2571,7 @@ bool kGolfPose::clustering()
 
 		int finalLabelIndex = 0;
 
-		//2°³°¡ ³ª¿À¸é, Áß½É¿¡¼­ Á¦ÀÏ ¸Õ °É·Î end point select
+		//2ê°œê°€ ë‚˜ì˜¤ë©´, ì¤‘ì‹¬ì—ì„œ ì œì¼ ë¨¼ ê±¸ë¡œ end point select
 		if (countLabel.size() > 0)
 		{
 			if (diTemp >= diTempSecond)
@@ -2632,7 +2632,7 @@ bool kGolfPose::clustering()
 
 void kGolfPose::recordMetrics(int idx)
 {
-	// 1) optical flow energy (ÀÌ¹Ì k_results[idx].flowEnergySum¿¡ °è»êµÇ¾î ÀÖÀ½)
+	// 1) optical flow energy (ì´ë¯¸ k_results[idx].flowEnergySumì— ê³„ì‚°ë˜ì–´ ìˆìŒ)
 	float flowEnergy = m_results[idx].flowEnergySum;
 	const Mat& bgsMask = m_results[idx].curBGSImg;
 	int bgsCount = countNonZero(bgsMask);

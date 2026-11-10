@@ -86,7 +86,7 @@ int main(int argc,char** argv) {
                 ball=p.m_ballPosition;candidate=p.estimationImpactSide();verified=p.m_impactIdx;
                 if(candidate<0) status=p.m_failureReason;
                 else {
-                    // 개선버전 3
+                    // 개선버전 4
                     int refined=candidate;
                     std::cout<<"AUDIT verified_candidate_output "<<candidate<<std::endl;
                     prediction=number(files[refined]);status="impact";

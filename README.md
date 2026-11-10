@@ -1,4 +1,4 @@
-﻿# golfBall (C++ / OpenCV)
+# golfBall (C++ / OpenCV)
 
 Visual Studio C++ project for golf-ball related image/video processing.
 
@@ -14,6 +14,21 @@ See
 ground-truth evaluation, and [PAPER_ALIGNMENT.md](PAPER_ALIGNMENT.md) for the
 audit and unresolved reproduction limits. The archived 97.30% is not yet a
 verified result of the revised implementation.
+
+## Preserved versions
+
+The default branch contains improvement version 4. Previous implementations
+remain available as immutable snapshots:
+
+- [Original public code](https://github.com/Kijung-Kim/HIT-Fusion/tree/original-public-v0)
+- [Manuscript reconstruction v1](https://github.com/Kijung-Kim/HIT-Fusion/tree/baseline-normalized-gaussian-v1)
+- [Improvement version 2](https://github.com/Kijung-Kim/HIT-Fusion/tree/improvement-v2)
+- [Improvement version 3](https://github.com/Kijung-Kim/HIT-Fusion/tree/improvement-v3)
+- [Improvement version 4](https://github.com/Kijung-Kim/HIT-Fusion/tree/improvement-v4)
+
+v4 uses unit-peak Gaussian voting followed by separate appearance support.
+The submitted manuscript is unchanged; measured results and validation limits
+are documented in [IMPROVEMENT_V4.md](IMPROVEMENT_V4.md).
 
 ![Project Abstract](assets/GAbstract2.png)
 
