@@ -173,6 +173,8 @@ public:
 	int m_ballImgSizeUpScale;
 	Net kNet;
     string m_paperMaskPath;
+    bool m_v4Ball=false, m_v4Temporal=false, m_v4Occlusion=false;
+    cv::Mat m_otherPersonMask;
     string m_failureReason;
 
 	bool m_firstCheckROI;

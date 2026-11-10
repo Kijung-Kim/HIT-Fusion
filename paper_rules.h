@@ -18,7 +18,7 @@ inline double unitPeakVote(double dx,double dy,double diameter) {
     const double sigma=40.0/diameter;
     return std::exp(-(dx*dx+dy*dy)/(2*sigma*sigma));
 }
-inline int selectCandidate(const std::vector<int>& s,const std::vector<double>& m,int lo,int hi) {
+inline int selectCandidate(const std::vector<int>& s,const std::vector<double>& m,int lo,int hi,bool fused=false) {
     if(lo<0 || hi<lo || hi>=int(s.size()) || s.size()!=m.size()) return -1;
     int smin=std::numeric_limits<int>::max(),smax=0;
     double mmin=std::numeric_limits<double>::infinity(),mmax=0;
@@ -38,7 +38,7 @@ inline int selectCandidate(const std::vector<int>& s,const std::vector<double>& 
     }
     int best=-1;
     for(int i=lo;i<=hi;++i) if(s[i]>=scut && m[i]>=mcut)
-        if(best<0 || m[i]>m[best]) best=i; // earliest equal maximum
+        if(best<0 || (fused?s[i]*m[i]:m[i])>(fused?s[best]*m[best]:m[best])) best=i;
     return best;
 }
 inline int stableFrame(const std::vector<int>& s,int candidate,int direction,int lo,int hi) {
@@ -60,14 +60,23 @@ inline int refine(int candidate,const std::vector<int>& heights) {
     }
     return best<0?candidate:best;
 }
-inline int stableNeighborFrame(const std::vector<int>& s,int candidate,int direction,int lo,int hi) {
+inline int stableNeighborFrame(const std::vector<int>& s,int candidate,int direction,int lo,int hi,int maxChange=0) {
     int run=0;
     for(int offset=1;offset<=20;++offset) {
         int i=candidate+direction*offset;
         if(i<lo || i>hi || i<0 || i>=int(s.size())) break;
-        run=(s[i]==0)?run+1:0;
+        run=(s[i]>=0 && s[i]<=maxChange)?run+1:0;
         if(run==3) return i;
     }
     return -1;
+}
+inline int eventOnset(const std::vector<int>& s,int verified,int lo) {
+    if(verified<lo || verified<0 || verified>=int(s.size()) || s[verified]<=0) return verified;
+    int onset=verified;
+    for(int i=verified-1;i>=std::max(lo,verified-4);--i) {
+        if(s[i]<0 || 2*s[i]<s[verified]) break;
+        onset=i;
+    }
+    return onset;
 }
 }

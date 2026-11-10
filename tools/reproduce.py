@@ -89,6 +89,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--model', type=Path, required=True)
     parser.add_argument('--gt', type=Path)
+    parser.add_argument('--profile', choices=['v3','v4','v4_ball','v4_temporal','v4_occlusion'], default='v4')
     parser.add_argument('--limit', type=int)
     parser.add_argument('--shards', type=int, default=1)
     parser.add_argument('--shard-index', type=int, default=0)
@@ -125,7 +126,8 @@ def main():
                     source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=repo,text=True).strip()),
                     original_segmentation_checkpoint_identity='unavailable',
                     pipeline_threads=1, frame_id_convention='numeric filename stem',
-                    ground_truth=str(args.gt.resolve()) if args.gt else None)
+                    ground_truth=str(args.gt.resolve()) if args.gt else None,
+                    pipeline_profile=args.profile)
     (args.output/'metadata.json').write_text(json.dumps(metadata,indent=2),encoding='utf-8')
     for name, folder in sequences:
         directory = args.output / name
@@ -153,14 +155,14 @@ def main():
         opencv = Path(env.get('OpenCV_DIR','C:/opencv/opencv340/build'))/'x64/vc15/bin'
         env['PATH'] = str(opencv) + os.pathsep + env.get('PATH','')
         command=[str(exe),str(folder),str(directory/'segmentation.yml'),
-                 str(directory/'result.yml'),str(directory/'signals.csv')]
+                 str(directory/'result.yml'),str(directory/'signals.csv'),args.profile]
         with (directory/'execution.log').open('w',encoding='utf-8') as log:
             process = subprocess.run(command,cwd=repo,env=env,stdout=log,stderr=subprocess.STDOUT,timeout=600)
         output = cv2.FileStorage(str(directory/'result.yml'),cv2.FILE_STORAGE_READ)
         if not output.isOpened():
             raise RuntimeError(f'No result for {name}, return code {process.returncode}; see execution.log')
         entry = {k:output.getNode(k).string() for k in ['status','error']}
-        entry.update({k:int(output.getNode(k).real()) for k in ['prediction_frame_id','candidate_record_index','ball_x','ball_y','frames']})
+        entry.update({k:int(output.getNode(k).real()) for k in ['prediction_frame_id','candidate_record_index','verified_anchor_record_index','ball_x','ball_y','frames']})
         entry['pipeline_seconds']=output.getNode('pipeline_seconds').real()
         entry['segmentation_seconds']=segment_seconds
         entry['sequence_seconds']=time.perf_counter()-start

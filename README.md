@@ -2,8 +2,10 @@
 
 Visual Studio C++ project for golf-ball related image/video processing.
 
-The default entry point now runs improvement version 3 (v3), retaining v2's
-unit-peak Gaussian vote. See [IMPROVEMENT_V3.md](IMPROVEMENT_V3.md).
+The default entry point now runs improvement version 4 (v4), retaining unit-peak
+Gaussian kernels. See [IMPROVEMENT_V4.md](IMPROVEMENT_V4.md) for the new stages,
+validation provenance, and comparisons. v3 remains available at `improvement-v3`
+and through `--profile v3` in the reproduction runner.
 This is a method change from the submitted manuscript reconstruction (v1),
 which is retained at tag `baseline-normalized-gaussian-v1`. See
 [UNIT_PEAK_REVISION.md](UNIT_PEAK_REVISION.md) for the change and measured comparison.

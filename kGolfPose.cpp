@@ -213,7 +213,8 @@ void kGolfPose::detectedPerson(Mat inputImg, float threshold, Rect& outRec, Poin
 	}
     for (const auto& box : people) {
         if (box != outRec && (box & outRec).area()>0) {
-            outRec=Rect();m_failureReason="person_overlap";return;
+            if(!m_v4Occlusion) {outRec=Rect();m_failureReason="person_overlap";return;}
+            cout<<"AUDIT overlapping_person_boxes"<<endl;
         }
     }
 }
@@ -387,6 +388,7 @@ bool kGolfPose::findBallPosition()
     int count=0;
     for(int i=1;i<m_resultsNum/2;++i) for(const auto& b:m_results[i].paperCandidates) {
         if(b.size<=0) continue;
+        if(m_v4Occlusion && !m_otherPersonMask.empty() && m_otherPersonMask.at<uchar>(b.y,b.x)>0) continue;
         // 개선버전 2
         for(int y=0;y<vote.rows;++y) for(int x=0;x<vote.cols;++x) {
             double dx=x+m_ballRegion.x-b.x,dy=y+m_ballRegion.y-b.y;
@@ -395,7 +397,27 @@ bool kGolfPose::findBallPosition()
         ++count;
     }
     if(!count) {m_failureReason="no_ball_candidates";return false;}
-    Point peak; minMaxLoc(vote,nullptr,nullptr,nullptr,&peak);
+    if(m_v4Ball) {
+        int anchor=1;
+        for(int i=2;i<=m_resultsNum;++i) if(m_results[i].flowEnergySum>m_results[anchor].flowEnergySum) anchor=i;
+        int ia=std::max(0,anchor-7),ib=std::max(0,anchor-6),ic=std::max(0,anchor-5);
+        Mat a=m_results[ia].curImg,b=m_results[ib].curImg,c=m_results[ic].curImg;
+        if(!a.empty() && !b.empty() && !c.empty()) {
+            Mat lo,hi,tmp,reference,opened,contrast;
+            cv::min(a,b,lo);cv::max(a,b,hi);cv::min(hi,c,tmp);cv::max(lo,tmp,reference);
+            morphologyEx(reference,opened,MORPH_OPEN,getStructuringElement(MORPH_ELLIPSE,Size(3,3)));
+            morphologyEx(opened,contrast,MORPH_TOPHAT,getStructuringElement(MORPH_ELLIPSE,Size(19,19)));
+            Mat channels[3],appearance;split(contrast,channels);
+            cv::max(channels[0],channels[1],appearance);cv::max(appearance,channels[2],appearance);
+            Mat appearance64;appearance.convertTo(appearance64,CV_64FC1);
+            Mat supported=vote.mul(appearance64);double supportMax=0;minMaxLoc(supported,nullptr,&supportMax);
+            if(supportMax>0) vote=supported;
+            cout<<"AUDIT appearance_reference "<<ia<<" "<<ib<<" "<<ic<<endl;
+        }
+    }
+    if(m_v4Occlusion && !m_otherPersonMask.empty()) vote.setTo(0,m_otherPersonMask(m_ballRegion));
+    Point peak;double maxVote=0;minMaxLoc(vote,nullptr,&maxVote,nullptr,&peak);
+    if(maxVote<=0) {m_failureReason="no_visible_ball_candidates";return false;}
     m_ballPosition=peak+m_ballRegion.tl();
     m_finalBallROI=Rect(m_ballPosition.x-5,m_ballPosition.y-5,15,15);
     return true;
@@ -433,17 +455,24 @@ bool kGolfPose::setROIs(Mat inputColor, Rect& person, Rect& ball, Rect& motion)
     FileStorage masks(m_paperMaskPath,FileStorage::READ);
     if(!masks.isOpened()) {m_failureReason="missing_segmentation_cache";return false;}
     FileNode instances=masks["instances"];
-    double best=0; Mat selected;
+    double best=0; Mat selected; string selectedFile;
     for(auto it=instances.begin();it!=instances.end();++it) {
         int x,y,w,h; string file;
         (*it)["x"]>>x; (*it)["y"]>>y; (*it)["w"]>>w; (*it)["h"]>>h;
         (*it)["mask"]>>file;
         Rect box(x,y,w,h); double intersection=(person & box).area();
         double overlap=intersection/(person.area()+box.area()-intersection);
-        if(overlap>best) {best=overlap;selected=imread(file,0);}
+        if(overlap>best) {best=overlap;selected=imread(file,0);selectedFile=file;}
     }
     if(selected.empty() || selected.size()!=inputColor.size()) {
         m_failureReason="missing_matched_person_mask";return false;
+    }
+    m_otherPersonMask=Mat::zeros(inputColor.size(),CV_8UC1);
+    if(m_v4Occlusion) for(auto it=instances.begin();it!=instances.end();++it) {
+        string file;(*it)["mask"]>>file;
+        if(file==selectedFile) continue;
+        Mat other=imread(file,0);
+        if(!other.empty() && other.size()==inputColor.size()) bitwise_or(m_otherPersonMask,other,m_otherPersonMask);
     }
     double sum=0,count=0;
     for(int y=person.height/2;y<person.height;++y)
@@ -1975,18 +2004,22 @@ int kGolfPose::estimationImpactSide()
         motion[i]=m_results[i].flowEnergySum;
         m_results[i].localImpactBGSCount=change[i];
     }
-    auto decision=hit::selectCandidate(change,motion,5,m_resultsNum-6);
+    // 개선버전 4
+    auto decision=hit::selectCandidate(change,motion,5,m_resultsNum-6,m_v4Temporal);
     cout<<"AUDIT joint_candidate "<<decision<<endl;
     if(decision<0) {m_failureReason="no_joint_candidate";return -1;}
     // 개선버전 3
-    int before=hit::stableNeighborFrame(change,decision,-1,5,m_resultsNum-6);
-    int after=hit::stableNeighborFrame(change,decision,1,5,m_resultsNum-6);
+    int before=hit::stableNeighborFrame(change,decision,-1,5,m_resultsNum-6,m_v4Temporal?13:0);
+    int after=hit::stableNeighborFrame(change,decision,1,5,m_resultsNum-6,m_v4Temporal?13:0);
     cout<<"AUDIT stable_neighbors "<<before<<" "<<after<<endl;
     if(before<0 || after<0) {m_failureReason="missing_stable_neighbor";return -1;}
     kBGS(m_results[before].curGrayImg,m_results[after].curGrayImg,m_finalBallROI,0,0.1f,erosion,empty,out);
     cout<<"AUDIT stable_change "<<countNonZero(out>200)<<endl;
     if(countNonZero(out>200)<=13) {m_failureReason="stable_verification";return -1;}
-    m_impactIdx=decision;return decision;
+    m_impactIdx=decision;
+    int output=m_v4Temporal?hit::eventOnset(change,decision,5):decision;
+    cout<<"AUDIT onset_candidate "<<output<<endl;
+    return output;
 }
 
 

@@ -2,6 +2,17 @@
 #include <cassert>
 #include <iostream>
 int main() {
+    assert(hit::eventOnset({0,108,148,182,0},3,0)==1);
+    assert(hit::eventOnset({0,17,109},2,0)==2);
+    assert(hit::eventOnset({100,0,100},2,0)==2);
+    assert(hit::eventOnset({50,50,50,50,50,100},5,0)==1);
+    assert(hit::eventOnset({100,100,100},2,2)==2);
+    assert(hit::eventOnset({0,0},1,0)==1);
+    assert(hit::selectCandidate({2,8,5},{1,7,9},0,2)==2);
+    assert(hit::selectCandidate({2,8,5},{1,7,9},0,2,true)==1);
+    assert(hit::stableNeighborFrame({2,0,13,13},0,1,0,3,13)==3);
+    assert(hit::stableNeighborFrame({2,0,14,13},0,1,0,3,13)==-1);
+    assert(hit::stableNeighborFrame({2,-1,0,0},0,1,0,3,13)==-1);
     std::vector<int> boundary(22,1);
     boundary[18]=boundary[19]=boundary[20]=0;
     assert(hit::stableFrame(boundary,0,1,0,21)==-1);
